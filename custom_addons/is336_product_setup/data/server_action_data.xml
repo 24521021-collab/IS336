@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="action_auto_detect_uom_from_name" model="ir.actions.server">
+            <field name="name">Tự động nhận diện Đơn vị tính từ Tên SP</field>
+            <field name="model_id" ref="product.model_product_template"/>
+            <field name="binding_model_id" ref="product.model_product_template"/>
+            <field name="binding_view_types">list,form</field>
+            <field name="state">code</field>
+            <field name="code">records.action_auto_set_uom_from_name()</field>
+        </record>
+    </data>
+</odoo>
+

@@ -1,0 +1,11 @@
+# Bỏ qua thư mục mã nguồn Odoo gốc (vì đã dùng Docker image odoo:18.0)
+odoo-core/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Biến môi trường cá nhân (nếu có)
+.env
+

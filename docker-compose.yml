@@ -1,0 +1,14 @@
+services:
+  web:
+    image: odoo:18.0
+    ports:
+      - "8069:8069"
+    volumes:
+      - ./custom_addons:/mnt/extra-addons
+    environment:
+      - HOST=ep-lingering-bread-b32t8h7z.c-4.ap-southeast-1.aws.neon.tech
+      - PORT=5432
+      - USER=neondb_owner
+      - PASSWORD=npg_ZE9wJe5TnjpQ
+      - PGSSLMODE=require
+    command: odoo --db_sslmode=require -d neondb --limit-time-real=0 --limit-time-cpu=0

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+        <record id="product_category_do_uong" model="product.category">
+            <field name="name">Đồ uống</field>
+            <field name="parent_id" eval="False"/>
+        </record>
+
+        <record id="product_category_do_an_nhanh" model="product.category">
+            <field name="name">Đồ ăn nhanh</field>
+            <field name="parent_id" eval="False"/>
+        </record>
+
+        <record id="product_category_an_vat" model="product.category">
+            <field name="name">Ăn vặt</field>
+            <field name="parent_id" eval="False"/>
+        </record>
+
+        <record id="product_category_hang_thiet_yeu" model="product.category">
+            <field name="name">Hàng thiết yếu</field>
+            <field name="parent_id" eval="False"/>
+        </record>
+
+        <record id="product_category_do_dung_ca_nhan_hoc_tap" model="product.category">
+            <field name="name">Đồ dùng cá nhân/học tập</field>
+            <field name="parent_id" eval="False"/>
+        </record>
+    </data>
+</odoo>
+
