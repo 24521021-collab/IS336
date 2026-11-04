@@ -2,11 +2,6 @@
 
 Dự án sử dụng **Odoo 18.0** chạy trên **Docker** và kết nối chung tới cơ sở dữ liệu **PostgreSQL trên Cloud (Neon)** để toàn bộ thành viên trong nhóm có thể làm việc và đồng bộ dữ liệu theo thời gian thực.
 
----
-
-## ❓ Câu hỏi thường gặp: Có cần tải bộ cài Odoo hay thư mục `odoo-core` về máy không?
-
-**KHÔNG CẦN!**
 * Bạn **không cần** tải bộ cài Odoo cho Windows/Mac và cũng **không cần** tải thư mục mã nguồn `odoo-core`.
 * Khi bạn chạy lệnh `docker compose up -d`, **Docker sẽ tự động tải bản Odoo 18.0 chính thức** (`image: odoo:18.0`) về máy và tự động gắn thư mục `custom_addons/` của nhóm vào bên trong hệ thống.
 
