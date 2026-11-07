@@ -11,4 +11,4 @@ services:
       - USER=neondb_owner
       - PASSWORD=npg_ZE9wJe5TnjpQ
       - PGSSLMODE=require
-    command: odoo --db_sslmode=require -d neondb --limit-time-real=0 --limit-time-cpu=0
+    command: odoo --db_sslmode=require -d taphoa_ThuHoai --limit-time-real=0 --limit-time-cpu=0
