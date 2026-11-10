@@ -2,13 +2,199 @@
 <odoo>
     <data>
         <record id="action_auto_detect_uom_from_name" model="ir.actions.server">
-            <field name="name">Tự động nhận diện Đơn vị tính từ Tên SP</field>
+            <field name="name">Tự động nhận diện Đơn vị tính &amp; Danh mục từ Tên SP</field>
             <field name="model_id" ref="product.model_product_template"/>
             <field name="binding_model_id" ref="product.model_product_template"/>
             <field name="binding_view_types">list,form</field>
             <field name="state">code</field>
-            <field name="code">records.action_auto_set_uom_from_name()</field>
+            <field name="code"><![CDATA[
+UoM = env['uom.uom']
+UoMCateg = env['uom.category']
+ProdCateg = env['product.category']
+default_uom = env.ref('uom.product_uom_unit', raise_if_not_found=False)
+default_uom_id = default_uom.id if default_uom else False
+default_cat = env.ref('product.product_category_all', raise_if_not_found=False)
+default_cat_id = default_cat.id if default_cat else False
+
+pack_units = {'lốc', 'thùng', 'combo', 'vỉ', 'túi', 'bịch', 'hộp', 'gói', 'kiện', 'khay', 'bộ', 'set', 'dây', 'cây', 'chục', 'tá'}
+base_units = {'hộp', 'lon', 'chai', 'gói', 'bịch', 'cái', 'chiếc', 'cây', 'ly', 'hũ', 'tuýp', 'cuộn', 'thanh', 'viên', 'miếng', 'quyển', 'cuốn', 'tập', 'tờ', 'bút', 'lọ', 'bình', 'quả', 'trái', 'túi', 'vỉ'}
+suffixes = ('ml', 'lít', 'lit', 'gr', 'gram', 'kg', 'cm', 'mm', 'l', 'g', 'm')
+
+category_keywords = {
+    'Đồ uống': [
+        'sữa', 'thức uống', 'nước uống', 'nước ngọt', 'nước khoáng', 'nước suối', 'nước tinh khiết',
+        'nước tăng lực', 'nước ép', 'nước giải khát', 'nước dừa', 'nước mía', 'nước yến', 'trà',
+        'cà phê', 'cafe', 'bia', 'rượu', 'pepsi', 'coca', 'sting', 'redbull', 'bò húc', 'revive',
+        'aquafina', 'lavie', 'dasani', 'nutriboost', 'milo', 'ovaltine', 'lúa mạch', 'th true milk',
+        'vinamilk', 'dutch lady', 'kun', 'yakult', 'yomost', 'twister', 'c2', 'không độ', '0 độ',
+        'sinh tố', 'soda', 'trà sữa', 'cacao', 'fanta', 'sprite', 'mirinda', '7up', 'dr thanh',
+        'zero calo', 'hilo', 'a2', 'tiệt trùng', 'thanh trùng'
+    ],
+    'Đồ ăn nhanh': [
+        'mì', 'miến', 'phở', 'hủ tiếu', 'bún', 'cháo', 'xúc xích', 'bánh bao', 'bánh mì',
+        'sandwich', 'hamburger', 'burger', 'pizza', 'cơm cuộn', 'kimbap', 'cơm sườn', 'gà rán',
+        'lẩu', 'đồ hộp', 'pate', 'cá hộp', 'thịt hộp', 'mì ly', 'mì gói', 'mì xào',
+        'hảo hảo', 'omachi', 'kokomi', 'indomie', 'siukay', 'cung đình', 'lẩu tự sôi'
+    ],
+    'Ăn vặt': [
+        'snack', 'bimbim', 'bim bim', 'khoai tây', 'bánh quy', 'bánh ngọt', 'kẹo', 'socola',
+        'chocolate', 'bánh tráng', 'rong biển', 'hạt điều', 'hạt dẻ', 'hạt hướng dương',
+        'đậu phộng', 'khô gà', 'khô bò', 'khô mực', 'thạch', 'kem', 'bỏng ngô', 'chocopie',
+        'oreo', 'custas', 'bánh quế', 'bánh xốp', 'bánh gấu', 'bánh que', 'bánh cá',
+        'bánh flan', 'pudding', 'ô mai', 'mứt', 'hạt sen', 'da heo', 'chà bông', 'ruốc'
+    ],
+    'Hàng thiết yếu': [
+        'gạo', 'dầu ăn', 'nước mắm', 'nước tương', 'hạt nêm', 'bột ngọt', 'muối', 'đường',
+        'tiêu', 'ớt', 'tỏi', 'hành', 'trứng', 'tương ớt', 'tương cà', 'mayonnaise', 'bột chiên',
+        'giấy vệ sinh', 'khăn giấy', 'nước rửa chén', 'nước giặt', 'bột giặt', 'nước xả',
+        'nước lau sàn', 'nước tẩy', 'băng vệ sinh', 'túi rác', 'màng bọc', 'bật lửa', 'nến',
+        'pin', 'chinsu', 'nam ngư', 'maggi', 'knorr', 'ajinomoto', 'meizan', 'neptune',
+        'simply', 'comfort', 'downy', 'omo', 'ariel', 'sunlight', 'vim', 'dạ lan'
+    ],
+    'Đồ dùng cá nhân/học tập': [
+        'bút', 'viết', 'vở', 'tập', 'sổ', 'thước', 'tẩy', 'gôm', 'bút chì', 'bút bi',
+        'bút dạ', 'bút lông', 'kéo', 'dao rọc giấy', 'keo', 'hồ dán', 'bìa', 'giấy in',
+        'dầu gội', 'dầu xả', 'sữa tắm', 'xà bông', 'xà phòng', 'kem đánh răng', 'bàn chải',
+        'khăn mặt', 'khăn tắm', 'dao cạo', 'bọt cạo râu', 'sữa rửa mặt', 'kem chống nắng',
+        'khẩu trang', 'bông ngoáy tai', 'tăm bông', 'dép', 'văn phòng phẩm', 'băng keo',
+        'bấm kim', 'kim bấm', 'compa', 'hộp bút', 'balo', 'cặp sách', 'clear', 'pantene',
+        'head & shoulders', 'lifebuoy', 'colgate', 'ps', 'sensodyne', 'sunplay', 'biore'
+    ]
+}
+
+for rec in records:
+    name = (rec.name or '').strip()
+    if not name:
+        continue
+    clean = name
+    for ch in '(),;-/=':
+        clean = clean.replace(ch, ' ')
+    tokens = [t.strip() for t in clean.split() if t.strip()]
+    lower_tokens = [t.lower() for t in tokens]
+    name_clean = name.lower().replace('trong nước', 'nội địa')
+    name_lower = ' ' + name_clean + ' '
+    vals_to_write = {}
+
+    # --- 1. NHẬN DIỆN DANH MỤC SẢN PHẨM (CATEGORY) ---
+    best_cat_name = None
+    max_score = 0
+    for cat_name, keywords in category_keywords.items():
+        score = 0
+        for kw in keywords:
+            kw_padded = ' ' + kw.lower() + ' '
+            if kw_padded in name_lower:
+                score += len(kw.split()) * 2
+            elif kw.lower() in name_lower:
+                score += len(kw.split())
+        if score > max_score:
+            max_score = score
+            best_cat_name = cat_name
+
+    if best_cat_name and max_score > 0:
+        if not rec.categ_id or rec.categ_id.id == default_cat_id or rec.categ_id.name == 'All':
+            cat = ProdCateg.search([('name', '=', best_cat_name)], limit=1)
+            if not cat:
+                cat = ProdCateg.create({'name': best_cat_name})
+            vals_to_write['categ_id'] = cat.id
+
+    # --- 2. NHẬN DIỆN ĐƠN VỊ TÍNH (UOM) ---
+    pack_label = None
+    qty_int = 1
+    base_label = None
+
+    for i in range(len(lower_tokens) - 2):
+        t_pack = lower_tokens[i]
+        t_qty = lower_tokens[i + 1]
+        t_base = lower_tokens[i + 2]
+        if t_pack in pack_units and t_qty.isdigit() and t_base in base_units:
+            q = int(t_qty)
+            if q > 1 and t_pack != t_base:
+                pack_label = t_pack
+                qty_int = q
+                base_label = t_base
+                break
+
+    if not base_label:
+        if not (rec.uom_id and rec.uom_id.id != default_uom_id):
+            for i in range(len(lower_tokens) - 1):
+                t_u = lower_tokens[i]
+                t_next = lower_tokens[i + 1]
+                if t_u in base_units:
+                    num_part = t_next
+                    for sfx in suffixes:
+                        if t_next.endswith(sfx):
+                            num_part = t_next[:-len(sfx)].replace('.', '').replace(',', '')
+                            break
+                    if num_part.isdigit():
+                        base_label = t_u
+                        break
+            if not base_label and lower_tokens and (lower_tokens[0] in base_units or lower_tokens[0] in pack_units):
+                base_label = lower_tokens[0]
+
+    if base_label:
+        base_norm = base_label[0].upper() + base_label[1:].lower()
+        base_uom = UoM.with_context(active_test=False).search([('name', '=ilike', base_norm)], limit=1)
+        if not base_uom:
+            categ_name = 'Đơn vị: ' + base_norm
+            categ = UoMCateg.search([('name', '=ilike', categ_name)], limit=1)
+            if not categ:
+                categ = UoMCateg.create({'name': categ_name})
+            base_uom = UoM.with_context(active_test=False).search([('category_id', '=', categ.id), ('uom_type', '=', 'reference')], limit=1)
+            if not base_uom:
+                base_uom = UoM.create({
+                    'name': base_norm,
+                    'category_id': categ.id,
+                    'uom_type': 'reference',
+                    'factor': 1.0,
+                    'rounding': 0.01,
+                    'active': True,
+                })
+
+        target_uom = base_uom
+        if pack_label and qty_int > 1:
+            pack_norm = pack_label[0].upper() + pack_label[1:].lower()
+            pack_uom_name = f"{pack_norm} {qty_int} {base_label.lower()}"
+            pack_uom = UoM.with_context(active_test=False).search([
+                ('name', '=ilike', pack_uom_name),
+                ('category_id', '=', base_uom.category_id.id),
+            ], limit=1)
+            if not pack_uom:
+                base_finv = base_uom.factor_inv or 1.0
+                pack_uom = UoM.create({
+                    'name': pack_uom_name,
+                    'category_id': base_uom.category_id.id,
+                    'uom_type': 'bigger',
+                    'factor_inv': float(qty_int) * base_finv,
+                    'rounding': 0.01,
+                    'active': True,
+                })
+            target_uom = pack_uom
+
+        if target_uom and (rec.uom_id != target_uom or rec.uom_po_id != target_uom):
+            vals_to_write['uom_id'] = target_uom.id
+            vals_to_write['uom_po_id'] = target_uom.id
+
+    if vals_to_write:
+        rec.write(vals_to_write)
+]]></field>
+        </record>
+
+        <record id="automation_auto_detect_uom_on_save" model="base.automation">
+            <field name="name">IS336 - Tự động gán Đơn vị tính &amp; Danh mục khi tạo/lưu Sản phẩm</field>
+            <field name="model_id" ref="product.model_product_template"/>
+            <field name="trigger">on_create_or_write</field>
+            <field name="active" eval="True"/>
+        </record>
+
+        <record id="action_automation_auto_detect_uom" model="ir.actions.server">
+            <field name="name">Chạy tự động nhận diện Đơn vị tính &amp; Danh mục</field>
+            <field name="model_id" ref="product.model_product_template"/>
+            <field name="base_automation_id" ref="automation_auto_detect_uom_on_save"/>
+            <field name="usage">base_automation</field>
+            <field name="state">code</field>
+            <field name="code"><![CDATA[
+env.ref('is336_product_setup.action_auto_detect_uom_from_name').with_context(active_model='product.template', active_ids=records.ids).run()
+]]></field>
         </record>
     </data>
 </odoo>
-
