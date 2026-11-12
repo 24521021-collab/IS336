@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'IS336 - Thiết lập Danh mục & Tự động Đơn vị tính (Auto UoM)',
-    'version': '18.0.1.2.0',
+    'version': '18.0.1.4.0',
     'category': 'Inventory/Inventory',
-    'summary': 'Tự động nhận diện Đơn vị tính & Danh mục sản phẩm động (tự mở rộng từ khóa liên quan khi thêm Danh mục mới)',
+    'summary': 'Tự động nhận diện Đơn vị tính, Danh mục sản phẩm động và tự rút gọn Mã tham chiếu (SKU) chuẩn bán lẻ',
     'depends': ['product', 'uom', 'base_automation'],
     'data': [
         'data/product_category_data.xml',

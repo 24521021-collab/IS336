@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data>
-        <!-- 1. SERVER ACTION TRÊN PRODUCT.TEMPLATE: TỰ ĐỘNG NHẬN DIỆN ĐƠN VỊ TÍNH & DANH MỤC ĐỘNG -->
+        <!-- 1. SERVER ACTION TRÊN THANH CÔNG CỤ (ACTION MENU): TỰ ĐỘNG NHẬN DIỆN ĐƠN VỊ TÍNH & DANH MỤC -->
         <record id="action_auto_detect_uom_from_name" model="ir.actions.server">
             <field name="name">Tự động nhận diện Đơn vị tính &amp; Danh mục từ Tên SP</field>
             <field name="model_id" ref="product.model_product_template"/>
@@ -17,8 +17,14 @@ default_uom_id = default_uom.id if default_uom else False
 default_cat = env.ref('product.product_category_all', raise_if_not_found=False)
 default_cat_id = default_cat.id if default_cat else False
 
+# Nếu được gọi tự động lúc mới tạo SP (on_create), chỉ điền Danh mục khi SP đang ở danh mục mặc định (All),
+# tuyệt đối tôn trọng danh mục do người dùng tự chọn.
+# Ngược lại, nếu người dùng chủ động bấm nút trên thanh công cụ (Action), sẽ phân loại lại các SP được chọn.
+only_default_category = env.context.get('only_default_category', False)
+
 pack_units = {'lốc', 'thùng', 'combo', 'vỉ', 'túi', 'bịch', 'hộp', 'gói', 'kiện', 'khay', 'bộ', 'set', 'dây', 'cây', 'chục', 'tá'}
 base_units = {'hộp', 'lon', 'chai', 'gói', 'bịch', 'cái', 'chiếc', 'cây', 'ly', 'hũ', 'tuýp', 'cuộn', 'thanh', 'viên', 'miếng', 'quyển', 'cuốn', 'tập', 'tờ', 'bút', 'lọ', 'bình', 'quả', 'trái', 'túi', 'vỉ'}
+leading_pack_words = pack_units | {'lon', 'chai', 'hũ', 'lọ', 'bình'}
 suffixes = ('ml', 'lít', 'lit', 'gr', 'gram', 'kg', 'cm', 'mm', 'l', 'g', 'm')
 
 system_category_names = {
@@ -29,17 +35,18 @@ system_category_names = {
 }
 system_product_names = {
     'down payment (pos)', 'tips', 'standard delivery', 'giao hàng trong nước',
-    'free delivery charges', 'gift card', 'ewallet', 'discount'
+    'free delivery charges', 'gift card', 'ewallet', 'discount',
+    'thẻ quà tặng', 'top-up ewallet', 'miễn phí vận chuyển'
 }
 category_stop_words = {
     'và', 'các', 'những', 'từ', 'cho', 'của', 'loại', 'nhóm', 'mặt', 'hàng',
-    'sản', 'phẩm', 'chế', 'đồ', 'dùng', 'thực', 'tiêu', 'hóa', 'vật', 'dụng'
+    'sản', 'phẩm', 'chế', 'đồ', 'dùng', 'thực', 'tiêu', 'hóa', 'vật', 'dụng',
+    'cá', 'nhân', 'học', 'tập', 'ăn', 'uống', 'nhanh', 'vặt', 'thiết', 'yếu'
 }
 broad_category_names = {
     'đồ uống', 'đồ ăn nhanh', 'ăn vặt', 'hàng thiết yếu', 'đồ dùng cá nhân/học tập'
 }
 
-# Kho tri thức từ khóa liên quan (Semantic Concept Expansion)
 concept_keyword_bank = [
     {
         'triggers': ['sữa', 'chế phẩm từ sữa', 'bơ sữa', 'dairy', 'phô mai'],
@@ -61,27 +68,32 @@ concept_keyword_bank = [
         'keywords': [
             'thức uống', 'nước uống', 'nước ngọt', 'nước khoáng', 'nước suối', 'nước tinh khiết',
             'nước tăng lực', 'nước ép', 'nước giải khát', 'nước dừa', 'nước mía', 'nước yến',
-            'trà', 'trà xanh', 'trà sữa', 'trà ô long', 'cà phê', 'cafe', 'coffee',
-            'bia', 'rượu', 'pepsi', 'coca', 'sting', 'redbull', 'bò húc', 'revive',
-            'aquafina', 'lavie', 'dasani', 'twister', 'c2', 'không độ', '0 độ',
-            'sinh tố', 'soda', 'cacao', 'fanta', 'sprite', 'mirinda', '7up', 'dr thanh',
-            'zero calo', 'monster', 'number 1', 'compact', 'warrior', 'wake up 247',
-            'pocari', 'aquarius', 'schweppes', 'fuze tea', 'lipton', 'cozy', 'boncha',
-            'tea+', 'nescafe', 'g7', 'vinacafe', 'maccoffee', 'highlands', 'tiger',
-            'heineken', 'saigon', '333', 'larue', 'budweiser', 'huda', 'strongbow',
+            'nước hồng sâm', 'tổ yến chưng', 'nước cốt', 'trà', 'trà xanh', 'trà sữa', 'trà ô long',
+            'cà phê', 'cà phê hòa tan', 'cafe', 'café', 'coffee', 'bia', 'rượu',
+            'pepsi', 'coca', 'sting', 'redbull', 'bò húc', 'revive', 'aquafina', 'lavie', 'dasani',
+            'twister', 'c2', 'không độ', '0 độ', 'sinh tố', 'soda', 'cacao', 'fanta', 'sprite',
+            'mirinda', '7up', 'dr thanh', 'zero calo', 'monster', 'number 1', 'compact', 'warrior',
+            'wake up 247', 'pocari', 'aquarius', 'schweppes', 'fuze tea', 'lipton', 'cozy', 'boncha',
+            'tea+', 'nescafe', 'nescafé', 'g7', 'vinacafe', 'vinacafé', 'maccoffee', 'highlands',
+            'tiger', 'heineken', 'saigon', '333', 'larue', 'budweiser', 'huda', 'strongbow',
             'sữa', 'milo', 'ovaltine', 'lúa mạch', 'nutriboost', 'yakult', 'yomost'
         ],
-        'exclude': ['nước mắm', 'nước tương', 'nước rửa', 'nước giặt', 'nước xả', 'nước lau', 'nước tẩy', 'nước súc miệng', 'nước hoa'],
+        'exclude': [
+            'nước mắm', 'nước tương', 'nước rửa', 'nước giặt', 'nước xả', 'nước lau',
+            'nước tẩy', 'nước súc miệng', 'nước hoa', 'kẹo ngậm', 'kẹo dẻo', 'kẹo cứng',
+            'bánh quy', 'bánh bông lan'
+        ],
     },
     {
-        'triggers': ['trà', 'cà phê', 'cafe', 'coffee', 'tea'],
+        'triggers': ['trà', 'cà phê', 'cafe', 'café', 'coffee', 'tea'],
         'keywords': [
             'trà', 'trà xanh', 'trà đen', 'trà ô long', 'trà sữa', 'trà túi lọc', 'trà đào',
             'trà vải', 'trà chanh', 'c2', 'không độ', '0 độ', 'dr thanh', 'fuze tea',
-            'boncha', 'lipton', 'cozy', 'tea+', 'cà phê', 'cafe', 'coffee', 'nescafe',
-            'g7', 'vinacafe', 'wake up', 'maccoffee', 'highlands', 'the coffee house', 'cacao'
+            'boncha', 'lipton', 'cozy', 'tea+', 'cà phê', 'cà phê hòa tan', 'cafe', 'café',
+            'coffee', 'nescafe', 'nescafé', 'g7', 'vinacafe', 'vinacafé', 'wake up', 'maccoffee',
+            'highlands', 'the coffee house', 'cacao'
         ],
-        'exclude': [],
+        'exclude': ['kẹo ngậm', 'kẹo'],
     },
     {
         'triggers': ['bia', 'rượu', 'cồn', 'đồ uống có cồn', 'vang', 'alcohol'],
@@ -95,11 +107,12 @@ concept_keyword_bank = [
     {
         'triggers': ['đồ ăn nhanh', 'ăn nhanh', 'ăn liền', 'thực phẩm ăn liền', 'mì', 'phở', 'cháo', 'bún', 'miến', 'fast food'],
         'keywords': [
-            'mì', 'miến', 'phở', 'hủ tiếu', 'bún', 'cháo', 'xúc xích', 'bánh bao', 'bánh mì',
-            'sandwich', 'hamburger', 'burger', 'pizza', 'cơm cuộn', 'kimbap', 'cơm sườn', 'gà rán',
-            'lẩu', 'đồ hộp', 'pate', 'cá hộp', 'thịt hộp', 'mì ly', 'mì gói', 'mì xào', 'mì trộn',
-            'hảo hảo', 'omachi', 'kokomi', 'indomie', 'siukay', 'cung đình', 'đệ nhất', 'gấu đỏ',
-            'ba miền', 'vifon', 'miliket', 'nhịp sống', 'bích chi', 'lẩu tự sôi', 'tokbokki', 'bánh gạo'
+            'mì', 'miến', 'phở', 'hủ tiếu', 'bún', 'cháo', 'cháo tươi', 'cháo tổ yến', 'xúc xích',
+            'bánh bao', 'bánh mì', 'sandwich', 'hamburger', 'burger', 'pizza', 'cơm cuộn', 'kimbap',
+            'cơm sườn', 'gà rán', 'lẩu', 'đồ hộp', 'pate', 'cá hộp', 'thịt hộp', 'mì ly', 'mì gói',
+            'mì xào', 'mì trộn', 'mì bò', 'mì tôm', 'mì gà', 'mì chay', 'hảo hảo', 'omachi', 'kokomi',
+            'indomie', 'siukay', 'cung đình', 'đệ nhất', 'gấu đỏ', '3 miền', 'ba miền', 'unif',
+            'vifon', 'miliket', 'nhịp sống', 'bích chi', 'lẩu tự sôi', 'tokbokki', 'bánh gạo', 'koreno', 'ottogi'
         ],
         'exclude': ['phô mai'],
     },
@@ -107,16 +120,19 @@ concept_keyword_bank = [
         'triggers': ['ăn vặt', 'bánh kẹo', 'bánh', 'kẹo', 'snack', 'bim bim', 'đồ ăn vặt'],
         'keywords': [
             'snack', 'bimbim', 'bim bim', 'khoai tây', 'bánh quy', 'bánh ngọt', 'bánh bông lan',
-            'kẹo', 'socola', 'chocolate', 'bánh tráng', 'rong biển', 'hạt điều', 'hạt dẻ',
-            'hạt hướng dương', 'đậu phộng', 'khô gà', 'khô bò', 'khô mực', 'thạch', 'rau câu',
-            'kem', 'bỏng ngô', 'chocopie', 'oreo', 'custas', 'bánh quế', 'bánh xốp', 'bánh gấu',
-            'bánh que', 'bánh cá', 'bánh flan', 'pudding', 'ô mai', 'mứt', 'hạt sen', 'da heo',
-            'chà bông', 'ruốc', 'oishi', 'lays', 'poca', 'swing', 'chupa chups', 'alpenliebe',
-            'mentos', 'haribo', 'doublemint', 'xylitol', 'kitkat', 'snickers', 'cosy', 'solite',
-            'afc', 'richeese', 'nabati', 'tipo', 'hura', 'danisa', 'gouté', 'pocky', 'pepero',
-            'tao kae noi', 'long hải'
+            'bánh sô cô la', 'bánh socola', 'kẹo', 'kẹo ngậm', 'kẹo dẻo', 'kẹo mút', 'kẹo cao su',
+            'socola', 'sô cô la', 'chocolate', 'bánh tráng', 'rong biển', 'hạt điều', 'hạt dẻ',
+            'hạt hướng dương', 'hạnh nhân', 'óc chó', 'mắc ca', 'hạt bí', 'đậu phộng',
+            'xoài sấy', 'mít sấy', 'chuối sấy', 'khoai lang sấy', 'trái cây sấy', 'sấy dẻo', 'sấy giòn',
+            'khô gà', 'khô bò', 'khô mực', 'thạch', 'rau câu', 'kem', 'bỏng ngô', 'chocopie',
+            'oreo', 'custas', 'bánh quế', 'bánh xốp', 'bánh gấu', 'bánh que', 'bánh cá',
+            'bánh flan', 'pudding', 'ô mai', 'mứt', 'hạt sen', 'da heo', 'chà bông', 'ruốc',
+            'oishi', 'lays', 'lay stax', 'stax', 'pringles', 'slide', 'poca', 'swing',
+            'chupa chups', 'alpenliebe', 'mentos', 'haribo', 'doublemint', 'xylitol', 'pure fresh',
+            'kitkat', 'snickers', 'cosy', 'solite', 'afc', 'richeese', 'nabati', 'tipo', 'hura',
+            'danisa', 'gouté', 'pocky', 'pepero', 'tao kae noi', 'long hải', 'tuấn đạt'
         ],
-        'exclude': ['kem đánh răng', 'kem chống nắng', 'kem dưỡng', 'kem sữa', 'bánh mì', 'bánh bao'],
+        'exclude': ['kem đánh răng', 'kem chống nắng', 'kem dưỡng', 'kem sữa', 'bánh mì', 'bánh bao', 'mì khoai tây'],
     },
     {
         'triggers': ['gia vị', 'nước chấm', 'dầu ăn', 'nấu ăn', 'chế biến'],
@@ -134,7 +150,8 @@ concept_keyword_bank = [
         'keywords': [
             'gạo', 'nếp', 'đậu xanh', 'đậu đen', 'đậu đỏ', 'đậu nành', 'mè', 'vừng',
             'bột mì', 'bột năng', 'bột gạo', 'bột bắp', 'nấm hương', 'mộc nhĩ',
-            'bún khô', 'phở khô', 'bánh đa', 'nui', 'mì ý', 'spaghetti', 'yến mạch', 'ngũ cốc', 'st25'
+            'bún khô', 'phở khô', 'bánh đa', 'nui', 'mì ý', 'spaghetti', 'yến mạch',
+            'ngũ cốc', 'hạt chia', 'st25', 'xuân an', 'quaker'
         ],
         'exclude': [],
     },
@@ -153,53 +170,60 @@ concept_keyword_bank = [
     {
         'triggers': ['hàng thiết yếu', 'nhu yếu phẩm', 'thiết yếu', 'tạp hóa'],
         'keywords': [
-            'gạo', 'dầu ăn', 'nước mắm', 'nước tương', 'hạt nêm', 'bột ngọt', 'muối', 'đường',
-            'tiêu', 'ớt', 'tỏi', 'hành', 'trứng', 'tương ớt', 'tương cà', 'mayonnaise', 'bột chiên',
-            'giấy vệ sinh', 'khăn giấy', 'khăn ướt', 'nước rửa chén', 'nước giặt', 'bột giặt',
-            'nước xả', 'nước lau sàn', 'nước tẩy', 'băng vệ sinh', 'túi rác', 'màng bọc',
-            'bật lửa', 'nến', 'pin', 'chinsu', 'nam ngư', 'maggi', 'knorr', 'ajinomoto',
-            'meizan', 'neptune', 'simply', 'comfort', 'downy', 'omo', 'ariel', 'sunlight',
-            'vim', 'dạ lan', 'bobby', 'pulppy', 'bless you'
+            'gạo', 'ngũ cốc', 'yến mạch', 'hạt chia', 'dầu ăn', 'nước mắm', 'nước tương',
+            'hạt nêm', 'bột ngọt', 'muối', 'đường', 'tiêu', 'ớt', 'tỏi', 'hành', 'trứng',
+            'tương ớt', 'tương cà', 'mayonnaise', 'bột chiên', 'giấy vệ sinh', 'khăn giấy',
+            'khăn ướt', 'nước rửa chén', 'nước giặt', 'bột giặt', 'nước xả', 'nước lau sàn',
+            'nước tẩy', 'băng vệ sinh', 'túi rác', 'màng bọc', 'bật lửa', 'nến', 'pin',
+            'chinsu', 'nam ngư', 'maggi', 'knorr', 'ajinomoto', 'meizan', 'neptune', 'simply',
+            'comfort', 'downy', 'omo', 'ariel', 'sunlight', 'vim', 'dạ lan', 'bobby', 'pulppy',
+            'bless you', 'xuân an'
         ],
         'exclude': ['ít đường', 'không đường', 'có đường'],
     },
     {
-        'triggers': ['chăm sóc cá nhân', 'mỹ phẩm', 'vệ sinh cá nhân', 'làm đẹp', 'cá nhân'],
+        'triggers': ['chăm sóc cá nhân', 'đồ dùng cá nhân', 'mỹ phẩm', 'vệ sinh cá nhân', 'làm đẹp'],
         'keywords': [
             'dầu gội', 'dầu xả', 'sữa tắm', 'xà bông', 'xà phòng', 'kem đánh răng', 'bàn chải',
             'nước súc miệng', 'chỉ nha khoa', 'khăn mặt', 'khăn tắm', 'dao cạo', 'bọt cạo râu',
             'sữa rửa mặt', 'nước tẩy trang', 'bông tẩy trang', 'kem chống nắng', 'kem dưỡng',
-            'lăn khử mùi', 'xịt khử mùi', 'nước hoa', 'son', 'khẩu trang', 'bông ngoáy tai',
+            'lăn khử mùi', 'xịt khử mùi', 'nước hoa', 'son môi', 'khẩu trang', 'bông ngoáy tai',
             'tăm bông', 'băng vệ sinh', 'băng cá nhân', 'dầu gió', 'dép', 'bấm móng tay',
             'clear', 'pantene', 'head & shoulders', 'sunsilk', 'dove', 'tresemme', 'rejoice',
-            'romano', 'x-men', 'lifebuoy', 'lux', 'hazeline', 'colgate', 'p/s', 'ps',
-            'sensodyne', 'closeup', 'listerine', 'oral-b', 'sunplay', 'biore', 'nivea',
-            'vaseline', 'pond', 'simple', 'cetaphil', 'garnier', 'diana', 'kotex', 'laurier', 'gillette'
+            'romano', 'x-men', 'lifebuoy', 'lux', 'hazeline', 'colgate', 'p/s', 'sensodyne',
+            'closeup', 'listerine', 'oral-b', 'sunplay', 'biore', 'nivea', 'vaseline', 'pond',
+            'cetaphil', 'garnier', 'diana', 'kotex', 'laurier', 'gillette'
         ],
         'exclude': [],
     },
     {
         'triggers': ['học tập', 'văn phòng phẩm', 'dụng cụ học tập', 'sách vở', 'trường học'],
         'keywords': [
-            'bút', 'viết', 'vở', 'tập', 'sổ', 'thước', 'tẩy', 'gôm', 'bút chì', 'bút bi',
-            'bút dạ', 'bút lông', 'bút xóa', 'bút nhớ', 'highlight', 'kéo', 'dao rọc giấy',
-            'keo', 'hồ dán', 'bìa', 'giấy in', 'giấy a4', 'giấy note', 'văn phòng phẩm',
-            'băng keo', 'băng dính', 'bấm kim', 'kim bấm', 'kẹp giấy', 'compa', 'hộp bút',
-            'balo', 'cặp sách', 'màu vẽ', 'sáp màu', 'thiên long', 'campus', 'hồng hà', 'deli', 'pentel'
+            'bút', 'viết', 'vở', 'tập học sinh', 'tập vở', 'sổ tay', 'thước kẻ', 'thước',
+            'tẩy chì', 'gôm tẩy', 'gôm', 'bút chì', 'bút bi', 'bút dạ', 'bút lông', 'bút xóa',
+            'bút nhớ', 'highlight', 'kéo văn phòng', 'dao rọc giấy', 'keo dán', 'hồ dán',
+            'bìa hồ sơ', 'giấy in', 'giấy a4', 'giấy note', 'văn phòng phẩm', 'băng keo',
+            'băng dính', 'bấm kim', 'kim bấm', 'kẹp giấy', 'compa', 'hộp bút', 'balo',
+            'cặp sách', 'màu vẽ', 'sáp màu', 'thiên long', 'campus', 'hồng hà', 'deli', 'pentel'
         ],
         'exclude': ['nước tẩy', 'tẩy trang', 'tẩy bồn cầu'],
     },
     {
-        'triggers': ['rau', 'củ', 'quả', 'trái cây', 'tươi sống', 'thịt', 'cá', 'hải sản'],
+        'triggers': ['rau củ', 'trái cây', 'tươi sống', 'thịt tươi', 'cá tươi', 'hải sản'],
         'keywords': [
-            'rau', 'cải', 'xà lách', 'cà chua', 'dưa leo', 'khoai lang', 'cà rốt', 'bí đỏ',
-            'trái cây', 'táo', 'cam', 'nho', 'chuối', 'xoài', 'dưa hấu', 'ổi', 'bưởi',
-            'thịt heo', 'thịt bò', 'thịt gà', 'ba rọi', 'sườn', 'cá tươi', 'tôm tươi', 'mực tươi'
+            'rau củ', 'cải ngọt', 'cải xanh', 'xà lách', 'cà chua', 'dưa leo', 'khoai lang',
+            'cà rốt', 'bí đỏ', 'trái cây tươi', 'táo tươi', 'cam sành', 'nho tươi', 'chuối tươi',
+            'xoài tươi', 'dưa hấu', 'thịt heo', 'thịt bò', 'thịt gà', 'ba rọi', 'sườn heo',
+            'cá tươi', 'tôm tươi', 'mực tươi'
         ],
-        'exclude': ['hương cam', 'hương dâu', 'hương dứa', 'hương việt quất', 'hương dưa gang', 'hương chanh', 'vị dâu', 'vị cam', 'vị tôm', 'vị bò', 'vị gà', 'khô gà', 'khô bò', 'khô mực'],
+        'exclude': [
+            'hương cam', 'hương dâu', 'hương dứa', 'hương việt quất', 'hương dưa gang',
+            'hương chanh', 'vị dâu', 'vị cam', 'vị tôm', 'vị bò', 'vị gà', 'khô gà',
+            'khô bò', 'khô mực', 'xoài sấy', 'mít sấy', 'chuối sấy', 'sấy dẻo', 'rau thơm'
+        ],
     },
     {
-        'triggers': ['đông lạnh', 'mát', 'thực phẩm đông lạnh'],
+        'triggers': ['đông lạnh', 'thực phẩm đông lạnh'],
         'keywords': [
             'đông lạnh', 'há cảo', 'xíu mại', 'chả giò', 'chả cá', 'cá viên', 'bò viên',
             'tôm viên', 'mandi', 'mandu', 'bánh xếp', 'gà vòng', 'nuggets', 'khoai tây cọng'
@@ -223,7 +247,11 @@ for cat in all_cats:
     clean_cat = cat_lower
     for ch in '&/,-()':
         clean_cat = clean_cat.replace(ch, ' ')
-    cat_words = [w.strip() for w in clean_cat.split() if w.strip() and w.strip() not in category_stop_words and len(w.strip()) > 1]
+    clean_cat_padded = ' ' + ' '.join(clean_cat.split()) + ' '
+    cat_words = [
+        w.strip() for w in clean_cat.split()
+        if w.strip() and w.strip() not in category_stop_words and len(w.strip()) > 1
+    ]
 
     direct_keywords = set(cat_words)
     temp_phrases = cat_lower
@@ -231,7 +259,7 @@ for cat in all_cats:
         temp_phrases = temp_phrases.replace(sep, '|')
     for phrase in temp_phrases.split('|'):
         p_clean = phrase.strip()
-        if p_clean and p_clean not in category_stop_words and len(p_clean) > 1:
+        if p_clean and p_clean not in category_stop_words and p_clean not in broad_category_names and len(p_clean) > 1:
             direct_keywords.add(p_clean)
 
     expanded_keywords = set(direct_keywords)
@@ -240,8 +268,8 @@ for cat in all_cats:
     for concept in concept_keyword_bank:
         matched_concept = False
         for trig in concept['triggers']:
-            trig_low = trig.lower()
-            if trig_low in cat_lower or trig_low in cat_words:
+            trig_low = trig.lower().strip()
+            if (' ' + trig_low + ' ') in clean_cat_padded or trig_low == cat_lower:
                 matched_concept = True
                 break
         if matched_concept:
@@ -260,6 +288,9 @@ for rec in records:
     name = (rec.name or '').strip()
     if not name or name.lower() in system_product_names:
         continue
+    if name.startswith('5% ở') or name.startswith('10% ở'):
+        continue
+
     clean = name
     for ch in '(),;-/=+':
         clean = clean.replace(ch, ' ')
@@ -269,42 +300,65 @@ for rec in records:
     name_clean = name.lower().replace('trong nước', 'nội địa')
     for ch in '(),;-/=+':
         name_clean = name_clean.replace(ch, ' ')
-    name_padded = ' ' + ' '.join(name_clean.split()) + ' '
+    name_clean = ' '.join(name_clean.split())
+    name_padded = ' ' + name_clean + ' '
+
+    # Tìm cụm danh từ chính đứng đầu tên SP (bỏ qua từ chỉ quy cách đóng gói như 'Lốc 4 hộp...')
+    clean_tokens = [t for t in name_clean.split() if t]
+    idx = 0
+    while idx < len(clean_tokens):
+        tok = clean_tokens[idx]
+        if tok in leading_pack_words or tok.isdigit() or tok == 'x':
+            idx += 1
+        else:
+            break
+    head_tokens = clean_tokens[idx:idx + 3] if idx < len(clean_tokens) else clean_tokens[:3]
+    head_padded = ' ' + ' '.join(head_tokens) + ' '
+
     vals_to_write = {}
 
-    # --- 1. NHẬN DIỆN DANH MỤC SẢN PHẨM ĐỘNG (DYNAMIC CATEGORY) ---
-    best_cat = None
-    max_score = 0.0
-    for prof in profiles:
-        has_excluded = False
-        for ex in prof['exclude']:
-            if ex in name_padded:
-                has_excluded = True
-                break
-        if has_excluded:
-            continue
+    # --- 1. NHẬN DIỆN DANH MỤC SẢN PHẨM (CHỈ KHI ĐƯỢC PHÉP) ---
+    can_update_category = True
+    if only_default_category:
+        # Khi chạy tự động lúc mới tạo SP (on_create), chỉ điền nếu SP chưa được người dùng chọn danh mục riêng
+        if rec.categ_id and rec.categ_id.id != default_cat_id and rec.categ_id.name not in ('All', 'Thực Phẩm & Tiêu Dùng'):
+            can_update_category = False
 
-        raw_score = 0.0
-        for dkw in prof['direct_keywords']:
-            dkw_pad = ' ' + dkw + ' '
-            if dkw_pad in name_padded:
-                raw_score += len(dkw.split()) * 4.0
+    if can_update_category:
+        best_cat = None
+        max_score = 0.0
+        for prof in profiles:
+            has_excluded = False
+            for ex in prof['exclude']:
+                if (' ' + ex + ' ') in name_padded or ex in name_padded:
+                    has_excluded = True
+                    break
+            if has_excluded:
+                continue
 
-        for kw in prof['keywords']:
-            kw_low = kw.lower()
-            kw_pad = ' ' + kw_low + ' '
-            if kw_pad in name_padded:
-                raw_score += len(kw_low.split()) * 2.0
-            elif len(kw_low) >= 4 and kw_low in name_padded:
-                raw_score += len(kw_low.split()) * 1.0
+            raw_score = 0.0
+            for dkw in prof['direct_keywords']:
+                dkw_pad = ' ' + dkw + ' '
+                if dkw_pad in name_padded:
+                    raw_score += len(dkw.split()) * 4.0
+                    if head_padded.startswith(dkw_pad) or dkw_pad in head_padded:
+                        raw_score += 6.0
 
-        final_score = raw_score * prof['specificity']
-        if final_score > max_score:
-            max_score = final_score
-            best_cat = prof['category']
+            for kw in prof['keywords']:
+                kw_low = kw.lower().strip()
+                kw_pad = ' ' + kw_low + ' '
+                if kw_pad in name_padded:
+                    raw_score += len(kw_low.split()) * 2.0
+                    if head_padded.startswith(kw_pad) or kw_pad in head_padded:
+                        raw_score += 6.0
 
-    if best_cat and max_score > 0 and rec.categ_id != best_cat:
-        vals_to_write['categ_id'] = best_cat.id
+            final_score = raw_score * prof['specificity']
+            if final_score > max_score:
+                max_score = final_score
+                best_cat = prof['category']
+
+        if best_cat and max_score > 0 and rec.categ_id != best_cat:
+            vals_to_write['categ_id'] = best_cat.id
 
     # --- 2. NHẬN DIỆN ĐƠN VỊ TÍNH (UOM) ---
     pack_label = None
@@ -388,48 +442,27 @@ for rec in records:
 ]]></field>
         </record>
 
-        <!-- 2. AUTOMATION KHI TẠO/LƯU SẢN PHẨM (PRODUCT.TEMPLATE) -->
+        <!-- 2. AUTOMATION CHỈ CHẠY KHI MỚI TẠO SẢN PHẨM LẦN ĐẦU (on_create) -->
+        <!-- KHÔNG chạy khi chỉnh sửa (write) để người dùng tự do đổi danh mục theo ý muốn! -->
         <record id="automation_auto_detect_uom_on_save" model="base.automation">
-            <field name="name">IS336 - Tự động gán Đơn vị tính &amp; Danh mục khi tạo/lưu Sản phẩm</field>
+            <field name="name">IS336 - Tự động gán Đơn vị tính &amp; Danh mục khi mới tạo Sản phẩm</field>
             <field name="model_id" ref="product.model_product_template"/>
-            <field name="trigger">on_create_or_write</field>
+            <field name="trigger">on_create</field>
             <field name="active" eval="True"/>
         </record>
 
         <record id="action_automation_auto_detect_uom" model="ir.actions.server">
-            <field name="name">Chạy tự động nhận diện Đơn vị tính &amp; Danh mục</field>
+            <field name="name">Chạy tự động nhận diện Đơn vị tính &amp; Danh mục (Lần đầu tạo SP)</field>
             <field name="model_id" ref="product.model_product_template"/>
             <field name="base_automation_id" ref="automation_auto_detect_uom_on_save"/>
             <field name="usage">base_automation</field>
             <field name="state">code</field>
             <field name="code"><![CDATA[
-env.ref('is336_product_setup.action_auto_detect_uom_from_name').with_context(active_model='product.template', active_ids=records.ids).run()
-]]></field>
-        </record>
-
-        <!-- 3. AUTOMATION KHI THÊM/SỬA DANH MỤC SẢN PHẨM MỚI (PRODUCT.CATEGORY) -->
-        <!-- Ngay khi người dùng tạo thêm một Danh mục mới (VD: "Sữa & Chế phẩm từ sữa"),
-             hệ thống tự động quét và phân loại lại toàn bộ sản phẩm khớp với danh mục mới! -->
-        <record id="automation_reclassify_on_category_save" model="base.automation">
-            <field name="name">IS336 - Tự động phân loại lại Sản phẩm ngay khi thêm/sửa Danh mục mới</field>
-            <field name="model_id" ref="product.model_product_category"/>
-            <field name="trigger">on_create_or_write</field>
-            <field name="active" eval="True"/>
-        </record>
-
-        <record id="action_automation_reclassify_on_category_save" model="ir.actions.server">
-            <field name="name">Quét và phân loại lại toàn bộ Sản phẩm theo Danh mục mới</field>
-            <field name="model_id" ref="product.model_product_category"/>
-            <field name="base_automation_id" ref="automation_reclassify_on_category_save"/>
-            <field name="usage">base_automation</field>
-            <field name="state">code</field>
-            <field name="code"><![CDATA[
-all_products = env['product.template'].search([('active', '=', True)])
-if all_products:
-    env.ref('is336_product_setup.action_auto_detect_uom_from_name').with_context(
-        active_model='product.template',
-        active_ids=all_products.ids
-    ).run()
+env.ref('is336_product_setup.action_auto_detect_uom_from_name').with_context(
+    active_model='product.template',
+    active_ids=records.ids,
+    only_default_category=True
+).run()
 ]]></field>
         </record>
     </data>
